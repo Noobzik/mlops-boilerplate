@@ -136,6 +136,11 @@ celerybeat.pid
 
 # Environments
 .env
+.env.local
+.env.*.local
+.env.development
+.env.staging
+.env.production
 .envrc
 .venv
 env/
@@ -143,6 +148,12 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Kubernetes secrets (NEVER commit real secrets!)
+k8s/secrets.yaml
+k8s/*-secrets.yaml
+secrets/
+*.secret.yaml
 
 # Spyder project settings
 .spyderproject
