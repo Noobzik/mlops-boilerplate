@@ -3,7 +3,7 @@ Configuration settings for ML Pipeline using Pydantic BaseSettings.
 All sensitive credentials should be stored in environment variables or .env files.
 """
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, field_validator
 from typing import Optional, List
 from functools import lru_cache
@@ -18,9 +18,10 @@ class DatabaseConfig(BaseSettings):
     user: str = Field(default="postgres", description="Database user")
     password: str = Field(description="Database password")
 
-    class Config:
-        env_prefix = "DB_"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_prefix="DB_",
+        case_sensitive=False,
+    )
 
     def get_connection_dict(self) -> dict:
         """Returns connection dictionary for psycopg2"""
@@ -47,9 +48,10 @@ class MinIOConfig(BaseSettings):
     bucket_features: str = Field(default="crypto-features", description="Features bucket name")
     bucket_data_versions: str = Field(default="crypto-data-versions", description="Data versions bucket")
 
-    class Config:
-        env_prefix = "MINIO_"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_prefix="MINIO_",
+        case_sensitive=False,
+    )
 
     def get_client_config(self) -> dict:
         """Returns configuration for MinIO client"""
@@ -68,9 +70,10 @@ class RedisConfig(BaseSettings):
     db: int = Field(default=0, description="Redis database number")
     password: Optional[str] = Field(default=None, description="Redis password (optional)")
 
-    class Config:
-        env_prefix = "REDIS_"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_prefix="REDIS_",
+        case_sensitive=False,
+    )
 
     def get_client_config(self) -> dict:
         """Returns configuration for Redis client"""
@@ -93,9 +96,10 @@ class MLflowConfig(BaseSettings):
     backend_store_uri: Optional[str] = Field(default=None, description="MLflow backend store URI")
     artifact_root: Optional[str] = Field(default="s3://mlflow-artifacts", description="Default artifact root")
 
-    class Config:
-        env_prefix = "MLFLOW_"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_prefix="MLFLOW_",
+        case_sensitive=False,
+    )
 
 
 class DVCConfig(BaseSettings):
@@ -106,9 +110,10 @@ class DVCConfig(BaseSettings):
     secret_access_key: Optional[str] = Field(default=None, description="AWS/S3 secret key")
     endpoint_url: Optional[str] = Field(default="http://minio:9000", description="S3 endpoint URL")
 
-    class Config:
-        env_prefix = "DVC_"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_prefix="DVC_",
+        case_sensitive=False,
+    )
 
 
 class BinanceConfig(BaseSettings):
@@ -119,21 +124,14 @@ class BinanceConfig(BaseSettings):
             'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'ADAUSDT', 'SOLUSDT',
             'XRPUSDT', 'DOTUSDT', 'AVAXUSDT', 'MATICUSDT', 'LINKUSDT'
         ],
-        description="List of trading symbols"
+        description="List of trading symbols (use JSON array format in env vars)"
     )
     interval: str = Field(default="15m", description="Candle interval")
 
-    class Config:
-        env_prefix = "BINANCE_"
-        case_sensitive = False
-
-    @field_validator('symbols', mode='before')
-    @classmethod
-    def parse_symbols(cls, v):
-        """Parse comma-separated symbols string"""
-        if isinstance(v, str):
-            return [s.strip() for s in v.split(',')]
-        return v
+    model_config = SettingsConfigDict(
+        env_prefix="BINANCE_",
+        case_sensitive=False,
+    )
 
 
 class APIConfig(BaseSettings):
@@ -143,20 +141,13 @@ class APIConfig(BaseSettings):
     workers: int = Field(default=4, description="Number of worker processes")
     reload: bool = Field(default=False, description="Auto-reload on code changes")
     log_level: str = Field(default="info", description="Logging level")
-    cors_origins: List[str] = Field(default=["*"], description="CORS allowed origins")
+    cors_origins: List[str] = Field(default=["*"], description="CORS allowed origins (use JSON array format in env vars)")
     rate_limit: str = Field(default="100/minute", description="Rate limit per client")
 
-    class Config:
-        env_prefix = "API_"
-        case_sensitive = False
-
-    @field_validator('cors_origins', mode='before')
-    @classmethod
-    def parse_cors_origins(cls, v):
-        """Parse comma-separated CORS origins"""
-        if isinstance(v, str):
-            return [s.strip() for s in v.split(',')]
-        return v
+    model_config = SettingsConfigDict(
+        env_prefix="API_",
+        case_sensitive=False,
+    )
 
 
 class MonitoringConfig(BaseSettings):
@@ -170,9 +161,10 @@ class MonitoringConfig(BaseSettings):
     enable_metrics: bool = Field(default=True, description="Enable Prometheus metrics")
     enable_tracing: bool = Field(default=False, description="Enable distributed tracing")
 
-    class Config:
-        env_prefix = "MONITORING_"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_prefix="MONITORING_",
+        case_sensitive=False,
+    )
 
 
 class Settings(BaseSettings):
@@ -192,11 +184,13 @@ class Settings(BaseSettings):
     api: APIConfig = Field(default_factory=APIConfig)
     monitoring: MonitoringConfig = Field(default_factory=MonitoringConfig)
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-        env_nested_delimiter = "__"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        env_nested_delimiter="__",
+        extra="ignore",  # Ignore extra fields from environment variables
+    )
 
     @field_validator('environment')
     @classmethod
