@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ml-pipeline-config
+  namespace: ml-pipeline
+  labels:
+    app: crypto-prediction-api
+    component: config
+data:
+  # Environment
+  ENVIRONMENT: "production"
+  DEBUG: "false"
+
+  # Database
+  DB_HOST: "postgres.ml-pipeline.svc.cluster.local"
+  DB_PORT: "5432"
+  DB_NAME: "postgres"
+  DB_USER: "ml_pipeline"
+
+  # MinIO
+  MINIO_ENDPOINT: "minio.ml-pipeline.svc.cluster.local:9000"
+  MINIO_SECURE: "false"
+  MINIO_BUCKET_MODELS: "crypto-models"
+  MINIO_BUCKET_FEATURES: "crypto-features"
+  MINIO_BUCKET_DATA_VERSIONS: "crypto-data-versions"
+
+  # Redis
+  REDIS_HOST: "redis.ml-pipeline.svc.cluster.local"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+
+  # MLflow
+  MLFLOW_TRACKING_URI: "http://mlflow-tracking.ml-pipeline.svc.cluster.local:5000"
+  MLFLOW_EXPERIMENT_PREFIX: "crypto_multi_models"
+  MLFLOW_ARTIFACT_ROOT: "s3://mlflow-artifacts"
+
+  # DVC
+  DVC_REMOTE_NAME: "minio"
+  DVC_REMOTE_URL: "s3://dvc-storage"
+  DVC_ENDPOINT_URL: "http://minio.ml-pipeline.svc.cluster.local:9000"
+
+  # Binance API
+  BINANCE_BASE_URL: "https://api.binance.com/api/v3/klines"
+  BINANCE_SYMBOLS: '["BTCUSDT","ETHUSDT","BNBUSDT","ADAUSDT","SOLUSDT","XRPUSDT","DOTUSDT","AVAXUSDT","MATICUSDT","LINKUSDT"]'
+  BINANCE_INTERVAL: "15m"
+
+  # API Server
+  API_HOST: "0.0.0.0"
+  API_PORT: "8000"
+  API_WORKERS: "4"
+  API_RELOAD: "false"
+  API_LOG_LEVEL: "info"
+  API_CORS_ORIGINS: '["*"]'
+  API_RATE_LIMIT: "100/minute"
+
+  # Monitoring
+  MONITORING_PROMETHEUS_PUSHGATEWAY: "prometheus-pushgateway.monitoring.svc.cluster.local:9091"
+  MONITORING_LOG_LEVEL: "INFO"
+  MONITORING_ENABLE_METRICS: "true"
+  MONITORING_ENABLE_TRACING: "false"

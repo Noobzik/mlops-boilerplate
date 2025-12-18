@@ -1,0 +1,59 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: crypto-prediction-api-ingress
+  namespace: ml-pipeline
+  labels:
+    app: crypto-prediction-api
+    component: ingress
+  annotations:
+    # Nginx ingress annotations (adjust based on your ingress controller)
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/limit-rps: "10"
+
+    # CORS annotations
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+
+    # Connection and timeout settings
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+
+    # Certificate manager (if using cert-manager for TLS)
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+
+spec:
+  ingressClassName: nginx
+
+  # TLS configuration (uncomment and configure if using TLS)
+  # tls:
+  # - hosts:
+  #   - api.crypto-ml.example.com
+  #   secretName: crypto-api-tls
+
+  rules:
+  - host: api.crypto-ml.example.com  # Replace with your actual domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: crypto-prediction-api
+            port:
+              number: 8000
+
+  # Alternative: Expose without hostname (useful for testing)
+  # - http:
+  #     paths:
+  #     - path: /api
+  #       pathType: Prefix
+  #       backend:
+  #         service:
+  #           name: crypto-prediction-api
+  #           port:
+  #             number: 8000

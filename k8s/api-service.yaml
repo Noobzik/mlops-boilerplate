@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: crypto-prediction-api
+  namespace: ml-pipeline
+  labels:
+    app: crypto-prediction-api
+    component: inference
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  selector:
+    app: crypto-prediction-api
+  ports:
+  - name: http
+    port: 8000
+    targetPort: http
+    protocol: TCP
+  sessionAffinity: None
