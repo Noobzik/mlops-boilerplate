@@ -1,0 +1,188 @@
+version: '3.8'
+
+services:
+  # PostgreSQL - Stores OHLCV data
+  postgres:
+    image: postgres:14-alpine
+    container_name: ml-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: crypto_trading
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis - Feature caching
+  redis:
+    image: redis:7-alpine
+    container_name: ml-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO - S3-compatible storage for models and data
+  minio:
+    image: minio/minio:latest
+    container_name: ml-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: admin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # MLflow Tracking Server
+  mlflow:
+    image: python:3.9-slim
+    container_name: ml-mlflow
+    working_dir: /mlflow
+    command: bash -c "apt-get update && apt-get install -y curl && pip install mlflow psycopg2-binary boto3 && mlflow server --host 0.0.0.0 --port 5001 --backend-store-uri postgresql://postgres:postgres@postgres:5432/mlflow --default-artifact-root s3://mlflow-artifacts --serve-artifacts"
+    environment:
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: admin123
+    ports:
+      - "5001:5001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Inference API (Production API)
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.inference
+    container_name: ml-inference-api
+    environment:
+      # Environment
+      ENVIRONMENT: development
+      DEBUG: "true"
+
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: crypto_trading
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+
+      # MinIO
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: admin
+      MINIO_SECRET_KEY: admin123
+      MINIO_SECURE: "false"
+
+      # MLflow
+      MLFLOW_TRACKING_URI: http://mlflow:5001
+      MLFLOW_EXPERIMENT_PREFIX: crypto_multi_models
+
+      # Binance - Use JSON array format
+      BINANCE_SYMBOLS: '["BTCUSDT","ETHUSDT","BNBUSDT"]'
+
+      # API
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      API_WORKERS: 2
+      API_RELOAD: "true"
+      API_LOG_LEVEL: debug
+      API_CORS_ORIGINS: '["*"]'
+
+      # Monitoring
+      MONITORING_ENABLE_METRICS: "true"
+      MONITORING_LOG_LEVEL: DEBUG
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
+    volumes:
+      # Mount source code for hot reload in development
+      - ./app:/app
+      - ./src:/src
+      - ./dags:/dags
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Prometheus - Metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ml-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # Grafana - Visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ml-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+    name: ml-network
